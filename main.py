@@ -6,10 +6,10 @@ from sklearn.preprocessing import StandardScaler
 import os
 
 def load_image(image_path, scale_percent=25):
-    image = cv2.imread(image_path)
+    image = cv2.imread(image_path)   #Load image (BGR)
     if image is None:
         raise FileNotFoundError(f"Image not found at path: {image_path}")
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  #convert to rgb
     width = int(image.shape[1] * scale_percent / 100)
     height = int(image.shape[0] * scale_percent / 100)
     resized = cv2.resize(image, (width, height), interpolation=cv2.INTER_AREA)
@@ -18,11 +18,22 @@ def load_image(image_path, scale_percent=25):
 def reshape_image(image):
     return image.reshape((-1, 3))
 
+# def compress_with_kmeans(pixels, n_clusters=16):
+#     kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init='auto')
+#     kmeans.fit(pixels)
+#     compressed_pixels = kmeans.cluster_centers_[kmeans.labels_]
+#     return np.clip(compressed_pixels.astype('uint8'), 0, 255)
+
 def compress_with_kmeans(pixels, n_clusters=16):
+    print("Compressing image using KMeans...")
     kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init='auto')
     kmeans.fit(pixels)
-    compressed_pixels = kmeans.cluster_centers_[kmeans.labels_]
-    return np.clip(compressed_pixels.astype('uint8'), 0, 255)
+    
+    centers = np.asarray(kmeans.cluster_centers_, dtype=np.uint8)
+    labels = np.asarray(kmeans.labels_, dtype=np.uint8)
+
+    compressed_pixels = centers[labels]  # Replace each pixel with its cluster center
+    return compressed_pixels
 
 def compress_with_dbscan(pixels, eps=10, min_samples=50):
     sample_size = min(5000, pixels.shape[0])
@@ -72,7 +83,7 @@ def show_images(original, kmeans_compressed, dbscan_compressed):
     plt.show()
 
 if __name__ == "__main__":
-    image_path = "image.jpg"  
+    image_path = "image.png"  
     output_dir = "compressed_images"
     os.makedirs(output_dir, exist_ok=True)
 
@@ -82,12 +93,12 @@ if __name__ == "__main__":
 
     kmeans_pixels = compress_with_kmeans(pixels, n_clusters=16)
     kmeans_image = reconstruct_image(kmeans_pixels, original_shape)
-    save_image(kmeans_image, os.path.join(output_dir, "kmeans_compressed.jpg"))
+    save_image(kmeans_image, os.path.join(output_dir, "kmeans_compressed.png"))
 
  
-    dbscan_pixels = compress_with_dbscan(pixels, eps=0.6, min_samples=100)
+    dbscan_pixels = compress_with_dbscan(pixels, eps=10, min_samples=50)
     dbscan_image = reconstruct_image(dbscan_pixels, original_shape)
-    save_image(dbscan_image, os.path.join(output_dir, "dbscan_compressed.jpg"))
+    save_image(dbscan_image, os.path.join(output_dir, "dbscan_compressed.png"))
 
     
     show_images(image, kmeans_image, dbscan_image)
